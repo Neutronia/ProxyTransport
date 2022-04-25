@@ -27,6 +27,7 @@ import io.sentry.SentryEvent;
 import io.sentry.SpanStatus;
 import org.nethergames.proxytransport.decoder.PacketDecoder;
 import org.nethergames.proxytransport.encoder.DataPackEncoder;
+import org.nethergames.proxytransport.encoder.ExtensionPacketEncoder;
 import org.nethergames.proxytransport.encoder.ZStdEncoder;
 import org.nethergames.proxytransport.integration.CustomTransportBatchBridge;
 import org.nethergames.proxytransport.utils.BedrockBatch;
@@ -287,6 +288,7 @@ public class TransportDownstreamSession implements dev.waterdog.waterdogpe.netwo
         ChannelPipeline pipeline = socketChannel.pipeline();
         pipeline.addLast(new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, 4, 0, 4));
         pipeline.addLast(new LengthFieldPrepender(4));
+        pipeline.addLast(new ExtensionPacketEncoder());
         pipeline.addLast(new DataPackEncoder());
         pipeline.addLast(new PacketDecoder(this));
 
