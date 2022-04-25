@@ -5,6 +5,7 @@ import com.nukkitx.protocol.bedrock.BedrockPacket;
 import com.nukkitx.protocol.bedrock.handler.BedrockPacketHandler;
 import com.nukkitx.protocol.bedrock.packet.NetworkStackLatencyPacket;
 import com.nukkitx.protocol.bedrock.packet.TickSyncPacket;
+import com.nukkitx.protocol.bedrock.packet.UnknownPacket;
 import dev.waterdog.waterdogpe.network.bridge.AbstractDownstreamBatchBridge;
 import dev.waterdog.waterdogpe.network.bridge.TransferBatchBridge;
 import dev.waterdog.waterdogpe.network.downstream.ConnectedDownstreamHandler;
@@ -14,6 +15,7 @@ import dev.waterdog.waterdogpe.network.session.DownstreamClient;
 import dev.waterdog.waterdogpe.network.session.bedrock.BedrockDownstreamBridge;
 import dev.waterdog.waterdogpe.player.ProxiedPlayer;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.ChannelPromise;
@@ -27,9 +29,9 @@ import io.sentry.SentryEvent;
 import io.sentry.SpanStatus;
 import org.nethergames.proxytransport.decoder.PacketDecoder;
 import org.nethergames.proxytransport.encoder.DataPackEncoder;
-import org.nethergames.proxytransport.encoder.ExtensionPacketEncoder;
 import org.nethergames.proxytransport.encoder.ZStdEncoder;
 import org.nethergames.proxytransport.integration.CustomTransportBatchBridge;
+import org.nethergames.proxytransport.protocol.packet.ExtensionPacket;
 import org.nethergames.proxytransport.utils.BedrockBatch;
 import org.nethergames.proxytransport.wrapper.DataPack;
 
@@ -288,11 +290,27 @@ public class TransportDownstreamSession implements dev.waterdog.waterdogpe.netwo
         ChannelPipeline pipeline = socketChannel.pipeline();
         pipeline.addLast(new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, 4, 0, 4));
         pipeline.addLast(new LengthFieldPrepender(4));
-        pipeline.addLast(new ExtensionPacketEncoder());
         pipeline.addLast(new DataPackEncoder());
         pipeline.addLast(new PacketDecoder(this));
 
         this.ready.set(true);
+    }
+
+    public void sendExtensionPacket(ExtensionPacket packet){
+        ByteBuf buf = ByteBufAllocator.DEFAULT.buffer();
+        try{
+            packet.encode(buf);
+            UnknownPacket packet1 = new UnknownPacket();
+            packet1.setPacketId(packet.getPacketId());
+            packet1.setPayload(buf.retain());
+
+            this.sendPacketImmediately(packet1);
+        }catch(Throwable t){
+            this.player.getLogger().error("Error while sending extension packet", t);
+        }finally{
+            buf.release();
+        }
+
     }
 
     public void handleNetworkStackPacket() {
