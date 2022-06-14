@@ -2,6 +2,7 @@ package org.nethergames.proxytransport;
 
 import dev.waterdog.waterdogpe.plugin.Plugin;
 import lombok.Getter;
+import org.nethergames.proxytransport.impl.event.TransportEventAdapter;
 import org.nethergames.proxytransport.integration.CustomTransportServerInfo;
 import org.nethergames.proxytransport.protocol.PacketPool;
 import org.nethergames.proxytransport.protocol.packet.LoginDetailTransmissionPacket;
@@ -11,6 +12,8 @@ import org.nethergames.proxytransport.protocol.packet.LoginDetailTransmissionPac
 public class ProxyTransport extends Plugin {
     private static ProxyTransport instance;
     private final PacketPool extensionPacketPool = new PacketPool();
+    private static TransportEventAdapter eventAdapter;
+
     @Override
     public void onEnable() {
         instance = this;
@@ -25,5 +28,13 @@ public class ProxyTransport extends Plugin {
 
     public static ProxyTransport getInstance() {
         return instance;
+    }
+
+    public static TransportEventAdapter getEventAdapter() {
+        return eventAdapter;
+    }
+
+    public static void setEventAdapter(TransportEventAdapter eventAdapter) {
+        ProxyTransport.eventAdapter = eventAdapter;
     }
 }
