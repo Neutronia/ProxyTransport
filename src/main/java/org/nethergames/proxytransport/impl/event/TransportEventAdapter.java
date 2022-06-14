@@ -4,6 +4,8 @@ import dev.waterdog.waterdogpe.network.serverinfo.ServerInfo;
 import dev.waterdog.waterdogpe.network.session.DownstreamSession;
 import dev.waterdog.waterdogpe.player.ProxiedPlayer;
 import io.netty.buffer.ByteBuf;
+import org.nethergames.proxytransport.impl.TransportDownstreamSession;
+import org.nethergames.proxytransport.protocol.packet.ExtensionPacket;
 
 import javax.annotation.Nullable;
 import java.net.InetSocketAddress;
@@ -15,4 +17,5 @@ public interface TransportEventAdapter {
     public void initialServerConnected(DownstreamSession session);
     public void transferCompleted(DownstreamSession session);
     public void downstreamException(DownstreamSession session, Throwable t, @Nullable ByteBuf origin);
+    public void extensionPacketReceived(ExtensionPacket packet, ProxiedPlayer player);
 }

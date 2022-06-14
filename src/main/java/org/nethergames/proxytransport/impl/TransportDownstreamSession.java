@@ -5,7 +5,6 @@ import com.nukkitx.protocol.bedrock.BedrockPacket;
 import com.nukkitx.protocol.bedrock.handler.BedrockPacketHandler;
 import com.nukkitx.protocol.bedrock.packet.NetworkStackLatencyPacket;
 import com.nukkitx.protocol.bedrock.packet.TickSyncPacket;
-import com.nukkitx.protocol.bedrock.packet.UnknownPacket;
 import dev.waterdog.waterdogpe.network.bridge.AbstractDownstreamBatchBridge;
 import dev.waterdog.waterdogpe.network.bridge.TransferBatchBridge;
 import dev.waterdog.waterdogpe.network.downstream.ConnectedDownstreamHandler;
@@ -24,11 +23,13 @@ import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.handler.codec.LengthFieldPrepender;
 import io.netty.util.ReferenceCounted;
 import org.nethergames.proxytransport.ProxyTransport;
+import org.nethergames.proxytransport.decoder.ExtensionPacketDecoder;
 import org.nethergames.proxytransport.decoder.PacketDecoder;
 import org.nethergames.proxytransport.encoder.DataPackEncoder;
 import org.nethergames.proxytransport.encoder.ZStdEncoder;
 import org.nethergames.proxytransport.integration.CustomTransportBatchBridge;
 import org.nethergames.proxytransport.protocol.packet.ExtensionPacket;
+import org.nethergames.proxytransport.protocol.packet.LoginDetailTransmissionPacket;
 import org.nethergames.proxytransport.utils.BedrockBatch;
 import org.nethergames.proxytransport.wrapper.DataPack;
 
@@ -85,6 +86,11 @@ public class TransportDownstreamSession implements dev.waterdog.waterdogpe.netwo
         this.pingFuture = this.getChannel().eventLoop().scheduleAtFixedRate(this::determinePing, PING_CYCLE_TIME, PING_CYCLE_TIME, TimeUnit.SECONDS);
         this.limitResetFuture = focusedResetTimer.scheduleAtFixedRate(() -> this.packetSendingLimit.set(0), 1, 1, TimeUnit.SECONDS);
 
+        LoginDetailTransmissionPacket transmissionPacket = new LoginDetailTransmissionPacket();
+        transmissionPacket.setXuid(proxiedPlayer.getXuid());
+        transmissionPacket.setOriginIp(proxiedPlayer.getAddress().getAddress().getHostAddress());
+        this.sendExtensionPacket(transmissionPacket);
+
         if (initial) {
             this.setPacketHandler(new InitialHandler(proxiedPlayer, this.client));
             this.setBatchHandler(new BedrockDownstreamBridge(player, player.getUpstream()));
@@ -135,9 +141,6 @@ public class TransportDownstreamSession implements dev.waterdog.waterdogpe.netwo
         callback.run();
 
         ProxyTransport.getEventAdapter().transferCompleted(this);
-
-       /* currentSpan.finish(SpanStatus.OK);
-        this.sentryTransaction.finish(SpanStatus.OK);*/
     }
 
     @Override
@@ -272,26 +275,23 @@ public class TransportDownstreamSession implements dev.waterdog.waterdogpe.netwo
         pipeline.addLast(new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, 4, 0, 4));
         pipeline.addLast(new LengthFieldPrepender(4));
         pipeline.addLast(new DataPackEncoder());
+        pipeline.addLast(new ExtensionPacketDecoder(this));
         pipeline.addLast(new PacketDecoder(this));
 
         this.ready.set(true);
     }
 
-    public void sendExtensionPacket(ExtensionPacket packet){
+    public void sendExtensionPacket(ExtensionPacket packet) {
         ByteBuf buf = ByteBufAllocator.DEFAULT.buffer();
-        try{
+        try {
+            buf.writeInt(packet.getPacketId());
             packet.encode(buf);
-            UnknownPacket packet1 = new UnknownPacket();
-            packet1.setPacketId(packet.getPacketId());
-            packet1.setPayload(buf.retain());
-
-            this.sendPacketImmediately(packet1);
-        }catch(Throwable t){
+            this.channel.writeAndFlush(buf, this.voidPromise);
+        } catch (Throwable t) {
             this.player.getLogger().error("Error while sending extension packet", t);
-        }finally{
+        } finally {
             buf.release();
         }
-
     }
 
     public void handleNetworkStackPacket() {
