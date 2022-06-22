@@ -10,6 +10,11 @@ public class ProxyTransport extends Plugin {
 
     @Override
     public void onEnable() {
+        
+    }
+
+    @Override
+    public void onStartup() {
         getProxy().getServerInfoMap().removeServerInfoType(CustomTransportServerInfo.TYPE);
         getProxy().getServerInfoMap().registerServerInfoFactory(CustomTransportServerInfo.TYPE, CustomTransportServerInfo::new);
     }
